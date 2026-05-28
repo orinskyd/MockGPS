@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>选择位置</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, sans-serif; height: 100vh; display: flex; flex-direction: column; }
+  #search-bar {
+    display: flex; gap: 8px; padding: 10px 12px;
+    background: #fff; border-bottom: 1px solid #e5e5e5; z-index: 1000;
+  }
+  #search-input {
+    flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px;
+    font-size: 14px; outline: none;
+  }
+  #search-btn {
+    padding: 8px 16px; background: #1976D2; color: #fff;
+    border: none; border-radius: 8px; font-size: 14px; cursor: pointer;
+  }
+  #map { flex: 1; }
+  #info-bar {
+    padding: 10px 14px; background: #f8f9fa; border-top: 1px solid #e5e5e5;
+    font-size: 13px; color: #555; min-height: 42px;
+  }
+  #confirm-btn {
+    display: none; width: calc(100% - 24px); margin: 8px 12px;
+    padding: 12px; background: #2E7D32; color: #fff;
+    border: none; border-radius: 10px; font-size: 15px; font-weight: 500; cursor: pointer;
+  }
+  .leaflet-container { background: #e8e8e8; }
+  #loading { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); background: rgba(0,0,0,0.6); color: #fff; padding: 10px 20px; border-radius: 8px; font-size: 13px; z-index: 9999; }
+</style>
+</head>
+<body>
+
+<div id="search-bar">
+  <input id="search-input" type="text" placeholder="搜索地址，如：天安门、西湖、龙泉市" />
+  <button id="search-btn" onclick="doSearch()">搜索</button>
+</div>
+
+<div id="map"></div>
+<div id="loading">搜索中...</div>
+<div id="info-bar">点击地图任意位置，选择模拟坐标</div>
+<button id="confirm-btn" onclick="confirmLocation()">确认使用此位置</button>
+
+<script>
+var map = L.map('map', { zoomControl: true }).setView([28.07, 119.14], 13);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap',
+  maxZoom: 19
+}).addTo(map);
+
+var marker = null;
+var selectedLat = null;
+var selectedLng = null;
+
+map.on('click', function(e) {
+  setMarker(e.latlng.lat, e.latlng.lng, null);
+});
+
+function setMarker(lat, lng, name) {
+  if (marker) map.removeLayer(marker);
+  marker = L.marker([lat, lng]).addTo(map);
+  selectedLat = lat;
+  selectedLng = lng;
+  var label = name || ('纬度 ' + lat.toFixed(6) + '  经度 ' + lng.toFixed(6));
+  document.getElementById('info-bar').innerHTML =
+    '<b>' + label + '</b><br><small>' + lat.toFixed(6) + ', ' + lng.toFixed(6) + '</small>';
+  document.getElementById('confirm-btn').style.display = 'block';
+}
+
+function doSearch() {
+  var q = document.getElementById('search-input').value.trim();
+  if (!q) return;
+  var loading = document.getElementById('loading');
+  loading.style.display = 'block';
+  var url = 'https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(q) + '&limit=1&accept-language=zh';
+  fetch(url, { headers: { 'User-Agent': 'MockGPSApp/1.0' } })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      loading.style.display = 'none';
+      if (data && data.length > 0) {
+        var lat = parseFloat(data[0].lat);
+        var lng = parseFloat(data[0].lon);
+        var name = data[0].display_name;
+        map.setView([lat, lng], 16);
+        setMarker(lat, lng, name.split(',')[0]);
+      } else {
+        document.getElementById('info-bar').textContent = '未找到该地址，请换个关键词';
+      }
+    })
+    .catch(function() {
+      loading.style.display = 'none';
+      document.getElementById('info-bar').textContent = '搜索失败，请检查网络';
+    });
+}
+
+document.getElementById('search-input').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') doSearch();
+});
+
+function confirmLocation() {
+  if (selectedLat !== null && selectedLng !== null) {
+    Android.onLocationSelected(selectedLat, selectedLng);
+  }
+}
+</script>
+</body>
+</html>

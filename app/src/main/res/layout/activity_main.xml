@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#F5F5F5">
+
+    <!-- 标题栏 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:background="#1976D2"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="GPS位置模拟"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="已关闭"
+            android:textColor="#FFCDD2"
+            android:textSize="13sp" />
+    </LinearLayout>
+
+    <!-- 当前坐标卡片 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#FFFFFF"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:elevation="2dp"
+        android:layout_marginBottom="1dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="当前模拟位置"
+            android:textColor="#888888"
+            android:textSize="12sp"
+            android:layout_marginBottom="6dp" />
+
+        <TextView
+            android:id="@+id/tvLocationName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="尚未选择位置"
+            android:textColor="#212121"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="4dp" />
+
+        <TextView
+            android:id="@+id/tvCoords"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="点击下方地图选择位置"
+            android:textColor="#666666"
+            android:textSize="13sp"
+            android:fontFamily="monospace" />
+    </LinearLayout>
+
+    <!-- WebView 地图 -->
+    <WebView
+        android:id="@+id/webView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <!-- 底部开关 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#FFFFFF"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:elevation="8dp">
+
+        <Button
+            android:id="@+id/btnToggle"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:text="开启GPS模拟"
+            android:textSize="16sp"
+            android:backgroundTint="#2E7D32"
+            android:textColor="#FFFFFF"
+            android:enabled="false" />
+
+        <TextView
+            android:id="@+id/tvHint"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="提示：请先在「开发者选项」中将本App设为模拟位置应用"
+            android:textColor="#999999"
+            android:textSize="11sp"
+            android:layout_gravity="center_horizontal" />
+    </LinearLayout>
+
+</LinearLayout>
