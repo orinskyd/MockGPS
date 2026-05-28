@@ -1,14 +1,14 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>选择位置</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdn.bootcdn.net/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: -apple-system, sans-serif; height: 100vh; display: flex; flex-direction: column; }
+  body { font-family: -apple-system, "Microsoft YaHei", sans-serif; height: 100vh; display: flex; flex-direction: column; }
   #search-bar {
     display: flex; gap: 8px; padding: 10px 12px;
     background: #fff; border-bottom: 1px solid #e5e5e5; z-index: 1000;
@@ -20,6 +20,7 @@
   #search-btn {
     padding: 8px 16px; background: #1976D2; color: #fff;
     border: none; border-radius: 8px; font-size: 14px; cursor: pointer;
+    white-space: nowrap;
   }
   #map { flex: 1; }
   #info-bar {
@@ -31,8 +32,25 @@
     padding: 12px; background: #2E7D32; color: #fff;
     border: none; border-radius: 10px; font-size: 15px; font-weight: 500; cursor: pointer;
   }
-  .leaflet-container { background: #e8e8e8; }
-  #loading { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); background: rgba(0,0,0,0.6); color: #fff; padding: 10px 20px; border-radius: 8px; font-size: 13px; z-index: 9999; }
+  .leaflet-container { background: #f0f0f0; }
+  #loading {
+    display: none; position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%,-50%); background: rgba(0,0,0,0.65);
+    color: #fff; padding: 10px 20px; border-radius: 8px; font-size: 13px; z-index: 9999;
+  }
+  #set-key-bar {
+    display: flex; gap: 6px; padding: 6px 12px;
+    background: #fffbe6; border-bottom: 1px solid #ffe58f; z-index: 1000;
+    font-size: 12px; align-items: center;
+  }
+  #set-key-bar input {
+    flex: 1; padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 11px;
+  }
+  #set-key-bar button {
+    padding: 4px 10px; background: #1976D2; color: #fff;
+    border: none; border-radius: 4px; font-size: 11px; cursor: pointer; white-space: nowrap;
+  }
+  #key-status { color: #999; font-size: 11px; margin-left: 4px; }
 </style>
 </head>
 <body>
@@ -42,30 +60,68 @@
   <button id="search-btn" onclick="doSearch()">搜索</button>
 </div>
 
+<div id="set-key-bar" style="display:none">
+  <span>高德Key:</span>
+  <input id="key-input" type="text" placeholder="输入你的高德Web服务Key（免费申请）" />
+  <button onclick="saveKey()">保存</button>
+  <span id="key-status"></span>
+  <a href="https://lbs.amap.com/" target="_blank" style="font-size:10px;color:#1976D2;white-space:nowrap;">去申请</a>
+</div>
+
 <div id="map"></div>
 <div id="loading">搜索中...</div>
 <div id="info-bar">点击地图任意位置，选择模拟坐标</div>
 <button id="confirm-btn" onclick="confirmLocation()">确认使用此位置</button>
 
 <script>
+// ===== 高德地图瓦片（免费，无需Key） =====
+// 使用高德矢量瓦片，国内访问速度快
+var AmapNormalLayer = L.TileLayer.extend({
+  getTileUrl: function(coords) {
+    var s = (coords.x + coords.y) % 4 + 1;
+    return 'https://webrd0' + s + '.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x=' + coords.x + '&y=' + coords.y + '&z=' + coords.z;
+  }
+});
+
+var AmapSatelliteLayer = L.TileLayer.extend({
+  getTileUrl: function(coords) {
+    var s = (coords.x + coords.y) % 4 + 1;
+    return 'https://webst0' + s + '.is.autonavi.com/appmaptile?style=6&x=' + coords.x + '&y=' + coords.y + '&z=' + coords.z;
+  }
+});
+
+var AmapLabelLayer = L.TileLayer.extend({
+  getTileUrl: function(coords) {
+    var s = (coords.x + coords.y) % 4 + 1;
+    return 'https://webst0' + s + '.is.autonavi.com/appmaptile?style=8&x=' + coords.x + '&y=' + coords.y + '&z=' + coords.z;
+  }
+});
+
+// 初始化地图 - 默认定位到中国中部
 var map = L.map('map', { zoomControl: true }).setView([28.07, 119.14], 13);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '© OpenStreetMap',
-  maxZoom: 19
-}).addTo(map);
+var normalLayer = new AmapNormalLayer({ maxZoom: 18, attribution: '高德地图' });
+var satelliteLayer = new AmapSatelliteLayer({ maxZoom: 18 });
+var labelLayer = new AmapLabelLayer({ maxZoom: 18 });
+
+normalLayer.addTo(map);
+
+// 图层切换
+var baseMaps = { "标准地图": normalLayer, "卫星地图": L.layerGroup([satelliteLayer, labelLayer]) };
+L.control.layers(baseMaps, null, { position: 'topright' }).addTo(map);
 
 var marker = null;
 var selectedLat = null;
 var selectedLng = null;
 
+// 点击地图选点
 map.on('click', function(e) {
   setMarker(e.latlng.lat, e.latlng.lng, null);
 });
 
 function setMarker(lat, lng, name) {
   if (marker) map.removeLayer(marker);
-  marker = L.marker([lat, lng]).addTo(map);
+  marker = L.marker([lat, lng]).addTo(map).bindPopup(name || '已选位置').openPopup();
   selectedLat = lat;
   selectedLng = lng;
   var label = name || ('纬度 ' + lat.toFixed(6) + '  经度 ' + lng.toFixed(6));
@@ -74,32 +130,86 @@ function setMarker(lat, lng, name) {
   document.getElementById('confirm-btn').style.display = 'block';
 }
 
+// ===== 搜索功能 =====
+// 优先使用高德API（速度快、结果准），无Key时回退到ArcGIS全球搜索
+var amapKey = localStorage.getItem('amap_key') || '';
+
 function doSearch() {
   var q = document.getElementById('search-input').value.trim();
   if (!q) return;
   var loading = document.getElementById('loading');
   loading.style.display = 'block';
-  var url = 'https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(q) + '&limit=1&accept-language=zh';
-  fetch(url, { headers: { 'User-Agent': 'MockGPSApp/1.0' } })
+
+  if (amapKey) {
+    searchWithAmap(q);
+  } else {
+    searchWithArcGIS(q);
+  }
+}
+
+// 高德地理编码搜索（需要Key）
+function searchWithAmap(q) {
+  var url = 'https://restapi.amap.com/v3/geocode/geo?key=' + amapKey + '&address=' + encodeURIComponent(q) + '&output=JSON';
+  fetch(url)
     .then(function(r) { return r.json(); })
     .then(function(data) {
-      loading.style.display = 'none';
-      if (data && data.length > 0) {
-        var lat = parseFloat(data[0].lat);
-        var lng = parseFloat(data[0].lon);
-        var name = data[0].display_name;
+      document.getElementById('loading').style.display = 'none';
+      if (data.status === '1' && data.geocodes && data.geocodes.length > 0) {
+        var loc = data.geocodes[0].location.split(',');
+        var lng = parseFloat(loc[0]);
+        var lat = parseFloat(loc[1]);
         map.setView([lat, lng], 16);
-        setMarker(lat, lng, name.split(',')[0]);
+        setMarker(lat, lng, data.geocodes[0].formatted_address || q);
       } else {
-        document.getElementById('info-bar').textContent = '未找到该地址，请换个关键词';
+        document.getElementById('info-bar').innerHTML = '<span style="color:red">未找到该地址（' + (data.info || '') + '），请换个关键词</span>';
       }
     })
     .catch(function() {
-      loading.style.display = 'none';
-      document.getElementById('info-bar').textContent = '搜索失败，请检查网络';
+      document.getElementById('loading').style.display = 'none';
+      // 高德搜索失败，尝试ArcGIS
+      searchWithArcGIS(q);
     });
 }
 
+// ArcGIS全球地理编码（免费，无需Key，中国可用）
+function searchWithArcGIS(q) {
+  var url = 'https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates?f=json&singleLine=' + encodeURIComponent(q) + '&outFields=Match_addr,Region&maxLocations=3';
+  fetch(url)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      document.getElementById('loading').style.display = 'none';
+      if (data.candidates && data.candidates.length > 0) {
+        var c = data.candidates[0];
+        var lat = c.location.y;
+        var lng = c.location.x;
+        map.setView([lat, lng], 16);
+        setMarker(lat, lng, c.address);
+      } else {
+        // 也尝试用百度风格搜索提示
+        document.getElementById('info-bar').innerHTML = '<span style="color:#e67e22">未找到"' + q + '"<br>建议：试试城市名+地标（如"杭州西湖"），或直接点击地图选点<br>也可<a href="https://lbs.amap.com/" target="_blank" style="color:#1976D2">申请免费高德Key</a>提升搜索精度</span>';
+        // 显示Key输入栏
+        document.getElementById('set-key-bar').style.display = 'flex';
+      }
+    })
+    .catch(function() {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('info-bar').innerHTML = '<span style="color:red">搜索失败，请检查网络或直接在地图上点击选点</span>';
+    });
+}
+
+// 保存高德Key
+function saveKey() {
+  var key = document.getElementById('key-input').value.trim();
+  if (key) {
+    localStorage.setItem('amap_key', key);
+    amapKey = key;
+    document.getElementById('key-status').textContent = '已保存';
+    document.getElementById('key-status').style.color = '#2E7D32';
+    setTimeout(function() { document.getElementById('set-key-bar').style.display = 'none'; }, 1500);
+  }
+}
+
+// 回车搜索
 document.getElementById('search-input').addEventListener('keydown', function(e) {
   if (e.key === 'Enter') doSearch();
 });
@@ -109,6 +219,14 @@ function confirmLocation() {
     Android.onLocationSelected(selectedLat, selectedLng);
   }
 }
+
+// 初始提示
+setTimeout(function() {
+  var bar = document.getElementById('info-bar');
+  if (!selectedLat) {
+    bar.innerHTML = '<b>提示：</b>可直接在地图上点击选点，或用顶部搜索栏搜索地址';
+  }
+}, 2000);
 </script>
 </body>
 </html>

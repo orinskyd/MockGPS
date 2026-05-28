@@ -54,26 +54,32 @@ class MockLocationService : Service() {
     }
 
     private fun setupMockProvider() {
+        // 同时模拟GPS和NETWORK两个Provider，确保融合定位也能获取到模拟数据
+        setupSingleProvider(LocationManager.GPS_PROVIDER)
+        setupSingleProvider(LocationManager.NETWORK_PROVIDER)
+    }
+
+    private fun setupSingleProvider(provider: String) {
         try {
-            locationManager?.removeTestProvider(LocationManager.GPS_PROVIDER)
+            locationManager?.removeTestProvider(provider)
         } catch (_: Exception) {}
         try {
             locationManager?.addTestProvider(
-                LocationManager.GPS_PROVIDER,
+                provider,
                 false, false, false, false, true, true, true,
                 android.location.provider.ProviderProperties.POWER_USAGE_MEDIUM,
                 android.location.provider.ProviderProperties.ACCURACY_FINE
             )
-            locationManager?.setTestProviderEnabled(LocationManager.GPS_PROVIDER, true)
+            locationManager?.setTestProviderEnabled(provider, true)
         } catch (e: Exception) {
             // 旧版API回退
             try {
                 locationManager?.addTestProvider(
-                    LocationManager.GPS_PROVIDER,
+                    provider,
                     false, false, false, false, true, true, true,
                     2, 1
                 )
-                locationManager?.setTestProviderEnabled(LocationManager.GPS_PROVIDER, true)
+                locationManager?.setTestProviderEnabled(provider, true)
             } catch (_: Exception) {}
         }
     }
@@ -90,20 +96,23 @@ class MockLocationService : Service() {
     }
 
     private fun pushLocation() {
-        try {
-            val loc = Location(LocationManager.GPS_PROVIDER).apply {
-                latitude = lat
-                longitude = lng
-                altitude = 10.0
-                accuracy = 1.0f
-                time = System.currentTimeMillis()
-                elapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    verticalAccuracyMeters = 1.0f
+        val providers = arrayOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
+        for (provider in providers) {
+            try {
+                val loc = Location(provider).apply {
+                    latitude = lat
+                    longitude = lng
+                    altitude = 10.0
+                    accuracy = 1.0f
+                    time = System.currentTimeMillis()
+                    elapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        verticalAccuracyMeters = 1.0f
+                    }
                 }
-            }
-            locationManager?.setTestProviderLocation(LocationManager.GPS_PROVIDER, loc)
-        } catch (_: Exception) {}
+                locationManager?.setTestProviderLocation(provider, loc)
+            } catch (_: Exception) {}
+        }
     }
 
     private fun buildNotification(): Notification {
@@ -138,6 +147,9 @@ class MockLocationService : Service() {
         handler.removeCallbacks(pushRunnable)
         try {
             locationManager?.removeTestProvider(LocationManager.GPS_PROVIDER)
+        } catch (_: Exception) {}
+        try {
+            locationManager?.removeTestProvider(LocationManager.NETWORK_PROVIDER)
         } catch (_: Exception) {}
         super.onDestroy()
     }
