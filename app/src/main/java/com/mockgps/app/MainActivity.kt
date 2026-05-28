@@ -116,7 +116,7 @@ class MainActivity : AppCompatActivity() {
             if (!Settings.canDrawOverlays(this)) {
                 AlertDialog.Builder(this)
                     .setTitle("需要悬浮窗权限")
-                    .setMessage("OPPO系统会杀掉后台服务。开启悬浮窗可以让系统保留本App不被清理。\n\n（紫米的"图层在上面"就是这个）")
+                    .setMessage("OPPO系统会杀掉后台服务。开启悬浮窗可以让系统保留本App不被清理。\n\n（紫米的[图层在上面]就是这个）")
                     .setPositiveButton("去设置") { _, _ ->
                         startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                             Uri.parse("package:$packageName")))
