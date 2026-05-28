@@ -8,6 +8,7 @@ import android.app.Service
 import android.content.Intent
 import android.location.Location
 import android.location.LocationManager
+import android.net.wifi.WifiManager
 import android.os.Binder
 import android.os.Build
 import android.os.Handler
@@ -87,9 +88,18 @@ class MockLocationService : Service() {
     private val pushRunnable = object : Runnable {
         override fun run() {
             pushLocation()
+            // 每10秒更新一次通知（显示最新WiFi状态）
+            val now = System.currentTimeMillis()
+            if (now - lastNotifUpdate > 10000) {
+                lastNotifUpdate = now
+                val notif = buildNotification()
+                getSystemService(NotificationManager::class.java)
+                    .notify(NOTIF_ID, notif)
+            }
             handler.postDelayed(this, 1000)
         }
     }
+    private var lastNotifUpdate = 0L
 
     private fun startPushing() {
         handler.post(pushRunnable)
@@ -121,9 +131,19 @@ class MockLocationService : Service() {
             Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE
         )
+        // 检查WiFi状态，在通知里显示警告
+        val wifiManager = getSystemService(WIFI_SERVICE) as WifiManager
+        val wifiWarning = if (wifiManager.isWifiEnabled) {
+            "⚠️ WiFi未关闭，模拟可能失效！"
+        } else {
+            "模拟位置已生效"
+        }
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("GPS模拟运行中")
-            .setContentText("纬度 %.4f  经度 %.4f".format(lat, lng))
+            .setContentText("%.4f, %.4f  %s".format(lat, lng, wifiWarning))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(
+                "纬度: %.4f  经度: %.4f\n%s".format(lat, lng, wifiWarning)
+            ))
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setContentIntent(pendingIntent)
             .setOngoing(true)

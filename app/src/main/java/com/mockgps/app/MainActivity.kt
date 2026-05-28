@@ -7,8 +7,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
+import android.net.wifi.WifiManager
 import android.os.Bundle
 import android.os.IBinder
+import android.provider.Settings
 import android.webkit.JavascriptInterface
 import android.webkit.WebSettings
 import android.webkit.WebView
@@ -17,6 +19,7 @@ import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AlertDialog
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 
@@ -101,6 +104,26 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "请先在地图上选择位置", Toast.LENGTH_SHORT).show()
             return
         }
+        // 检查WiFi状态，开着就提示用户关闭
+        val wifiManager = getSystemService(Context.WIFI_SERVICE) as WifiManager
+        if (wifiManager.isWifiEnabled) {
+            AlertDialog.Builder(this)
+                .setTitle("需要关闭WiFi")
+                .setMessage("WiFi开启时，系统会使用真实的WiFi定位，导致模拟失效。\n\n请关闭WiFi后再开启模拟，或点击「去设置关WiFi」手动关闭。")
+                .setPositiveButton("去设置关WiFi") { _, _ ->
+                    startActivity(Intent(Settings.ACTION_WIFI_SETTINGS))
+                }
+                .setNegativeButton("继续（可能失效）") { _, _ ->
+                    reallyStartMocking()
+                }
+                .setCancelable(false)
+                .show()
+        } else {
+            reallyStartMocking()
+        }
+    }
+
+    private fun reallyStartMocking() {
         val intent = Intent(this, MockLocationService::class.java).apply {
             putExtra("lat", selectedLat)
             putExtra("lng", selectedLng)
