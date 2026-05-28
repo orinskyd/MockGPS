@@ -7,9 +7,12 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.net.wifi.WifiManager
 import android.os.Bundle
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.provider.Settings
 import android.webkit.JavascriptInterface
 import android.webkit.WebSettings
@@ -30,6 +33,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvLocationName: TextView
     private lateinit var tvCoords: TextView
     private lateinit var tvStatus: TextView
+    private lateinit var tvDiagnostic: TextView
+    private lateinit var btnCheck: Button
 
     private var selectedLat: Double = 0.0
     private var selectedLng: Double = 0.0
@@ -38,12 +43,15 @@ class MainActivity : AppCompatActivity() {
 
     private var mockService: MockLocationService? = null
     private var serviceBound = false
+    private val handler = Handler(Looper.getMainLooper())
 
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
             val b = binder as MockLocationService.LocalBinder
             mockService = b.getService()
             serviceBound = true
+            // 连接后自动检测
+            handler.postDelayed({ refreshDiagnostic() }, 2000)
         }
         override fun onServiceDisconnected(name: ComponentName?) {
             serviceBound = false
@@ -61,12 +69,18 @@ class MainActivity : AppCompatActivity() {
         tvLocationName = findViewById(R.id.tvLocationName)
         tvCoords = findViewById(R.id.tvCoords)
         tvStatus = findViewById(R.id.tvStatus)
+        tvDiagnostic = findViewById(R.id.tvDiagnostic)
+        btnCheck = findViewById(R.id.btnCheck)
 
         setupWebView()
         requestPermissions()
 
         btnToggle.setOnClickListener {
             if (!isRunning) startMocking() else stopMocking()
+        }
+
+        btnCheck.setOnClickListener {
+            refreshDiagnostic()
         }
     }
 
@@ -97,6 +111,29 @@ class MainActivity : AppCompatActivity() {
         if (missing.isNotEmpty()) {
             ActivityCompat.requestPermissions(this, missing.toTypedArray(), 100)
         }
+        // 悬浮窗权限
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+            if (!Settings.canDrawOverlays(this)) {
+                AlertDialog.Builder(this)
+                    .setTitle("需要悬浮窗权限")
+                    .setMessage("OPPO系统会杀掉后台服务。开启悬浮窗可以让系统保留本App不被清理。\n\n（紫米的"图层在上面"就是这个）")
+                    .setPositiveButton("去设置") { _, _ ->
+                        startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            Uri.parse("package:$packageName")))
+                    }
+                    .setNegativeButton("稍后") { _, _ -> }
+                    .show()
+            }
+        }
+    }
+
+    private fun refreshDiagnostic() {
+        if (serviceBound && mockService != null) {
+            val status = mockService!!.checkMockStatus()
+            tvDiagnostic.text = "=== 自检结果 ===\n$status"
+        } else {
+            tvDiagnostic.text = "=== 自检结果 ===\n服务未连接，请先开启模拟"
+        }
     }
 
     private fun startMocking() {
@@ -104,16 +141,15 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "请先在地图上选择位置", Toast.LENGTH_SHORT).show()
             return
         }
-        // 检查WiFi状态，开着就提示用户关闭
         val wifiManager = getSystemService(Context.WIFI_SERVICE) as WifiManager
         if (wifiManager.isWifiEnabled) {
             AlertDialog.Builder(this)
-                .setTitle("需要关闭WiFi")
-                .setMessage("WiFi开启时，系统会使用真实的WiFi定位，导致模拟失效。\n\n请关闭WiFi后再开启模拟，或点击「去设置关WiFi」手动关闭。")
+                .setTitle("⚠️ 需要关闭WiFi")
+                .setMessage("WiFi开启时高德SDK会用WiFi扫描定位，模拟必然失效。\n\n请关闭WiFi后再开启模拟。")
                 .setPositiveButton("去设置关WiFi") { _, _ ->
                     startActivity(Intent(Settings.ACTION_WIFI_SETTINGS))
                 }
-                .setNegativeButton("继续（可能失效）") { _, _ ->
+                .setNegativeButton("继续(会失效)") { _, _ ->
                     reallyStartMocking()
                 }
                 .setCancelable(false)
@@ -136,7 +172,7 @@ class MainActivity : AppCompatActivity() {
             android.content.res.ColorStateList.valueOf(0xFFB71C1C.toInt())
         tvStatus.text = "模拟中"
         tvStatus.setTextColor(0xFF80FF80.toInt())
-        Toast.makeText(this, "GPS模拟已开启！", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "GPS模拟已开启！请在钉钉中测试", Toast.LENGTH_SHORT).show()
     }
 
     private fun stopMocking() {
@@ -152,6 +188,7 @@ class MainActivity : AppCompatActivity() {
             android.content.res.ColorStateList.valueOf(0xFF2E7D32.toInt())
         tvStatus.text = "已关闭"
         tvStatus.setTextColor(0xFFFFCDD2.toInt())
+        tvDiagnostic.text = "=== 自检结果 ===\n已停止"
         Toast.makeText(this, "GPS模拟已停止", Toast.LENGTH_SHORT).show()
     }
 
@@ -166,7 +203,6 @@ class MainActivity : AppCompatActivity() {
                 tvCoords.text = "纬度 %.6f   经度 %.6f".format(lat, lng)
                 btnToggle.isEnabled = true
                 Toast.makeText(applicationContext, "位置已选定", Toast.LENGTH_SHORT).show()
-                // 如果已经在运行，自动更新坐标
                 if (isRunning) {
                     mockService?.updateLocation(lat, lng)
                 }

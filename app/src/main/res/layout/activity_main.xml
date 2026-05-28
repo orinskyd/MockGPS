@@ -77,6 +77,57 @@
         android:layout_height="0dp"
         android:layout_weight="1" />
 
+    <!-- 诊断面板 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#F5F5DC"
+        android:orientation="vertical"
+        android:padding="12dp"
+        android:layout_marginTop="1dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="诊断面板"
+                android:textColor="#333"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btnCheck"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:text="自检"
+                android:textSize="12sp"
+                android:backgroundTint="#FF9800"
+                android:minWidth="0dp"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp" />
+        </LinearLayout>
+
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="80dp"
+            android:layout_marginTop="6dp">
+
+            <TextView
+                android:id="@+id/tvDiagnostic"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="=== 自检结果 ===\n开启模拟后点"自检"查看各Provider状态"
+                android:textColor="#555"
+                android:textSize="11sp"
+                android:fontFamily="monospace" />
+        </ScrollView>
+    </LinearLayout>
+
     <!-- 底部开关 -->
     <LinearLayout
         android:layout_width="match_parent"
