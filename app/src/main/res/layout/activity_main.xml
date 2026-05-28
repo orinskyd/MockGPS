@@ -121,7 +121,7 @@
                 android:id="@+id/tvDiagnostic"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="=== 自检结果 ===\n开启模拟后点"自检"查看各Provider状态"
+                android:text="=== 自检结果 ===\n开启模拟后点 [自检] 查看各Provider状态"
                 android:textColor="#555"
                 android:textSize="11sp"
                 android:fontFamily="monospace" />
